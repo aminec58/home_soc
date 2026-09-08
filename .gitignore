@@ -1,0 +1,16 @@
+# Secrets — ne jamais committer
+.env
+*.key
+*.pem
+*password*
+*secret*
+
+# Exports lourds
+*.tar
+*.tar.gz
+*.zip
+*.log
+
+# Système
+.DS_Store
+Thumbs.db
