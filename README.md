@@ -44,7 +44,8 @@ Construire un SOC (Security Operations Center) complet en environnement virtuali
 | Suricata | IDS réseau | 7.x |
 | TheHive | Gestion d'incidents | 5.x |
 | Cortex | Analyseurs automatiques | 3.x |
-
+| Elasticsearch | Indexation & stockage des logs Wazuh | 8.19.21 |
+| Kibana | Visualisation & dashboards | 8.19.21 |
 ---
 
 ## Prérequis
