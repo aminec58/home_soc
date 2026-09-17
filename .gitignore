@@ -2,8 +2,12 @@
 .env
 *.key
 *.pem
+*.p12
+*.jks
 *password*
 *secret*
+*credential*
+certs/
 
 # Exports lourds
 *.tar
