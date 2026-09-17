@@ -42,10 +42,14 @@ Construire un SOC (Security Operations Center) complet en environnement virtuali
 | Wazuh Indexer | Stockage (OpenSearch) | 4.x |
 | Wazuh Dashboard | Visualisation | 4.x |
 | Suricata | IDS réseau | 7.x |
-| TheHive | Gestion d'incidents | 5.x |
-| Cortex | Analyseurs automatiques | 3.x |
+| TheHive | Gestion d'incidents | 5.8.0 |
+| Cortex | Analyseurs automatiques | 4.1.0 |
 | Elasticsearch | Indexation & stockage des logs Wazuh | 8.19.21 |
+|
 | Kibana | Visualisation & dashboards | 8.19.21 |
+| Cassandra | Base de données TheHive | 4.1.12 |
+| Elasticsearch (TheHive) | Index interne TheHive & Cortex | 7.17.29 |
+
 ---
 
 ## Prérequis
@@ -131,7 +135,9 @@ home_soc/
     ├── wazuh.sh                 # Script install Wazuh all-in-one
     ├── agent-linux.sh           # Script install agent Linux
     ├── agent-windows.ps1        # Script install agent Windows
-    └── sysmon.ps1               # Script install + config Sysmon
+    ├── sysmon.ps1               # Script install + config Sysmon
+    ├── elastic.sh               # Script install Elasticsearch + Kibana
+    └── thehive.sh               # Script install TheHive + Cortex
 ```
 
 ---
