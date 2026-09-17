@@ -45,7 +45,6 @@ Construire un SOC (Security Operations Center) complet en environnement virtuali
 | TheHive | Gestion d'incidents | 5.8.0 |
 | Cortex | Analyseurs automatiques | 4.1.0 |
 | Elasticsearch | Indexation & stockage des logs Wazuh | 8.19.21 |
-|
 | Kibana | Visualisation & dashboards | 8.19.21 |
 | Cassandra | Base de données TheHive | 4.1.12 |
 | Elasticsearch (TheHive) | Index interne TheHive & Cortex | 7.17.29 |
