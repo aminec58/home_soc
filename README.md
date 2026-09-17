@@ -84,7 +84,7 @@ chmod +x install/wazuh.sh
 sudo ./install/wazuh.sh
 ```
 
-Accéder au dashboard : `https://<IP_HOST_ONLY>` (identifiants dans `install/credentials.txt`)
+Accéder au dashboard : `https://<IP_HOST_ONLY>` (identifiants dans `/root/wazuh-credentials.txt` sur la VM, hors dépôt)
 
 ### 4. Déployer les VMs victimes et agents
 
