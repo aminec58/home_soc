@@ -48,6 +48,19 @@ Construire un SOC (Security Operations Center) complet en environnement virtuali
 | Kibana | Visualisation & dashboards | 8.19.21 |
 | Cassandra | Base de données TheHive | 4.1.12 |
 | Elasticsearch (TheHive) | Index interne TheHive & Cortex | 7.17.29 |
+| nginx | Terminaison TLS TheHive & Cortex | 1.18 |
+
+**Accès aux interfaces :**
+
+| Service | URL | VM |
+|---------|-----|----|
+| Wazuh Dashboard | `https://192.168.56.10` | wazuh |
+| Kibana | `https://192.168.56.20:5601` | elastic |
+| Elasticsearch | `https://192.168.56.20:9200` | elastic |
+| TheHive | `https://192.168.56.30:9443` | thehive |
+| Cortex | `https://192.168.56.30:9444` | thehive |
+
+Tous les certificats sont auto-signés : le navigateur affiche `NET::ERR_CERT_AUTHORITY_INVALID` au premier accès, c'est attendu.
 
 ---
 
@@ -57,6 +70,8 @@ Construire un SOC (Security Operations Center) complet en environnement virtuali
 - RAM hôte : 16 Go minimum (32 Go recommandé)
 - Stockage : 150 Go libres
 - Connexion internet (téléchargement des paquets)
+
+> **Windows 11 :** si VirtualBox plante ou si les VMs se bloquent au démarrage sur `Loading essential drivers`, c'est la cohabitation avec Hyper-V. Vérifier avec `Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard | Select-Object -ExpandProperty SecurityServicesRunning` : si la commande renvoie autre chose que `0`, désactiver l'intégrité de la mémoire dans Sécurité Windows → Sécurité de l'appareil → Isolation du noyau.
 
 ---
 
@@ -69,11 +84,36 @@ git clone https://github.com/aminec58/home_soc.git
 cd home_soc
 ```
 
-### 2. Créer la VM Wazuh (Ubuntu Server 22.04)
+### 2. Créer les VMs (Ubuntu Server 22.04)
 
-- RAM : 8 Go · CPU : 2 cœurs · Disque : 50 Go
 - Réseau : Adaptateur 1 = NAT · Adaptateur 2 = Host-Only (192.168.56.0/24)
-- Installer Ubuntu Server 22.04 LTS
+- Pendant l'installation, penser à **redimensionner `ubuntu-lv` au maximum** : le partitionnement LVM guidé ne alloue que la moitié du disque par défaut
+
+**Fixer l'IP host-only** (sinon la VM reprend une adresse DHCP à chaque redémarrage et les certificats TLS ne correspondent plus). Ubuntu régénère `/etc/netplan/50-cloud-init.yaml` au démarrage, il faut donc neutraliser cloud-init et écrire la configuration dans un fichier séparé :
+
+```bash
+echo 'network: {config: disabled}' | sudo tee /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg
+
+sudo tee /etc/netplan/60-static-hostonly.yaml > /dev/null <<'EOF'
+network:
+  version: 2
+  ethernets:
+    enp0s8:
+      dhcp4: false
+      addresses: [192.168.56.XX/24]
+EOF
+
+sudo chmod 600 /etc/netplan/60-static-hostonly.yaml
+sudo netplan apply
+```
+
+Pas de passerelle sur cette interface : l'accès internet passe par l'adaptateur NAT.
+
+| VM | IP | RAM | vCPU | Disque |
+|----|----|-----|------|--------|
+| wazuh | 192.168.56.10 | 8 Go | 2 | 50 Go |
+| elastic | 192.168.56.20 | 4 Go | 2 | 40 Go |
+| thehive | 192.168.56.30 | 6 Go | 2 | 50 Go |
 
 ### 3. Installer Wazuh all-in-one
 
@@ -85,7 +125,19 @@ sudo ./install/wazuh.sh
 
 Accéder au dashboard : `https://<IP_HOST_ONLY>` (identifiants dans `/root/wazuh-credentials.txt` sur la VM, hors dépôt)
 
-### 4. Déployer les VMs victimes et agents
+### 4. Installer Elasticsearch/Kibana puis TheHive/Cortex
+
+```bash
+# Depuis la VM elastic
+sudo ./install/elastic.sh
+
+# Depuis la VM thehive
+sudo ./install/thehive.sh
+# puis, après avoir créé la clé API dans Cortex :
+sudo CORTEX_API_KEY=<clé> ./install/thehive.sh
+```
+
+### 5. Déployer les VMs victimes et vérifier la détection
 
 ```bash
 # VM Windows : installer l'agent Wazuh via install/agent-windows.ps1
@@ -93,9 +145,17 @@ Accéder au dashboard : `https://<IP_HOST_ONLY>` (identifiants dans `/root/wazuh
 # VM Windows : installer Sysmon via install/sysmon.ps1
 ```
 
-### 5. Vérifier la détection
-
 Chaque cas d'attaque est documenté dans `docs/runbooks/`. Rejouer un cas, vérifier l'alerte dans le dashboard Wazuh et ouvrir un ticket dans TheHive.
+
+---
+
+## Sécurité du lab
+
+**Secrets.** Aucun mot de passe ni clé n'est versionné. Les scripts d'installation génèrent les secrets et les écrivent dans `/root/<service>-credentials.txt` sur la VM concernée, hors du dépôt. Le fichier `.env.example` documente quels secrets existent et où les retrouver, sans jamais contenir de valeur réelle.
+
+**Chiffrement.** Toutes les interfaces web sont en HTTPS avec des certificats auto-signés portant l'IP de la VM dans leur `subjectAltName` — les navigateurs modernes ignorent le champ `CN` et rejettent un certificat qui n'a que celui-ci. Elasticsearch génère les siens à l'installation, Kibana chiffre nativement, tandis que TheHive 5 et Cortex 4 n'ont pas de HTTPS intégré : la documentation StrangeBee ne prévoit qu'un reverse proxy, d'où nginx sur la VM thehive.
+
+**Filtrage.** TheHive et Cortex continuent d'écouter en clair sur 9000 et 9001 pour que nginx puisse les joindre en local. Sans filtrage, on pourrait donc contourner le HTTPS en s'y connectant directement : ufw n'autorise que 22, 9443 et 9444 depuis le sous-réseau du lab, et refuse tout le reste. Le trafic passant par `127.0.0.1` n'est pas filtré, ce qui laisse nginx travailler.
 
 ---
 
@@ -123,6 +183,7 @@ Suivi complet : [`docs/detection-cases.md`](docs/detection-cases.md)
 ```
 home_soc/
 ├── README.md
+├── .env.example                 # Secrets attendus (jamais de valeur réelle)
 ├── docs/
 │   ├── architecture.md          # Schéma détaillé de l'archi
 │   ├── detection-cases.md       # Tableau des 10 cas
