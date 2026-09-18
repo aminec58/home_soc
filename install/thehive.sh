@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Installation TheHive 5 + Cortex (noeud unique)
+# Installation TheHive 5 + Cortex (noeud unique) derrière nginx en HTTPS
 # VM thehive — 192.168.56.30 (host-only) — Ubuntu 22.04, 6 Go RAM / 2 vCPU / 50 Go
 #
 # Reproduit l'installation validée manuellement le 17/09/2026 :
 # Cassandra 4.1.12 (base de données) + Elasticsearch 7.17.29 (index de
 # recherche, instance dédiée à cette VM) + TheHive 5.8.0 + Cortex 4.1.0,
-# les deux applications tournant côte à côte sur la même VM.
+# les deux applications tournant côte à côte, exposées en HTTPS par nginx
+# et protégées par ufw (HOMESOC-11).
 #
 # Points d'attention découverts pendant l'installation manuelle :
 #  - TheHive 5 et Cortex 4 utilisent Pekko (fork d'Akka) : les clés de
@@ -22,6 +23,16 @@
 #    d'analyseurs. La liaison TheHive→Cortex exige un utilisateur créé dans
 #    une organisation de travail avec les rôles « read » et « analyze ».
 #    Cette partie se fait dans l'interface web (voir l'étape finale).
+#  - Ni TheHive 5 ni Cortex 4 ne savent faire du HTTPS eux-mêmes : la doc
+#    StrangeBee ne documente que le reverse proxy. Les deux restent donc en
+#    clair sur la boucle locale, nginx termine le TLS, et ufw ferme 9000 et
+#    9001 au réseau — sans quoi le chiffrement serait contournable en s'y
+#    connectant directement.
+#  - Prérequis : IP host-only statique. Ubuntu régénère
+#    /etc/netplan/50-cloud-init.yaml au démarrage, donc la config statique
+#    doit vivre dans un fichier séparé avec cloud-init neutralisé — sinon
+#    la VM reprend une adresse DHCP au reboot et le certificat ne
+#    correspond plus. Voir README.md.
 #
 # Usage :
 #   sudo ./install/thehive.sh                      # installation complète
@@ -37,9 +48,12 @@ ELASTIC_VERSION="7.17.29"    # 7.x : TheHive 5 n'est pas compatible ES 8.x
 
 NODE_IP="${NODE_IP:-192.168.56.30}"
 LAB_SUBNET="192.168.56.0/24"
+THEHIVE_HTTPS_PORT="9443"
+CORTEX_HTTPS_PORT="9444"
 CASSANDRA_CLUSTER="${CASSANDRA_CLUSTER:-Test Cluster}"  # nom par défaut, conservé
 CASSANDRA_HEAP="${CASSANDRA_HEAP:-1G}"
 ELASTIC_HEAP="${ELASTIC_HEAP:-1g}"
+NGINX_CERT_DIR="/etc/nginx/certs"
 CREDS_FILE="/root/thehive-credentials.txt"
 CORTEX_API_KEY="${CORTEX_API_KEY:-}"
 
@@ -252,7 +266,7 @@ if [[ -n "$CORTEX_API_KEY" ]]; then
   if ! grep -q '^cortex {' /etc/thehive/application.conf; then
     cat >> /etc/thehive/application.conf <<EOF
 
-## Connecteur Cortex (même VM, port 9001)
+## Connecteur Cortex (même VM, port 9001 en local)
 ## La clé doit appartenir à un utilisateur d'organisation ayant les rôles
 ## « read » et « analyze » — un compte superadmin ne peut pas lister les
 ## analyseurs (erreur « List Cortex analyzers fails »).
@@ -276,50 +290,137 @@ EOF
   fi
 fi
 
-# ----------------------------------------------------------- Pare-feu + fin --
-if command -v ufw >/dev/null 2>&1 && ufw status | grep -q "Status: active"; then
-  echo "[*] Ouverture des ports 9000 et 9001 depuis ${LAB_SUBNET}"
-  ufw allow from "$LAB_SUBNET" to any port 9000 proto tcp
-  ufw allow from "$LAB_SUBNET" to any port 9001 proto tcp
+# ------------------------------------------------ TLS via nginx (HOMESOC-11) --
+echo "[*] Installation de nginx (terminaison TLS)"
+apt install -y nginx
+
+echo "[*] Génération du certificat auto-signé"
+# Un seul certificat pour les deux applications, elles sont sur la même
+# machine. subjectAltName avec l'IP : les navigateurs ignorent le champ CN.
+mkdir -p "$NGINX_CERT_DIR"
+if [[ ! -f "${NGINX_CERT_DIR}/soc.crt" ]]; then
+  openssl req -x509 -newkey rsa:2048 -nodes -days 825 \
+    -keyout "${NGINX_CERT_DIR}/soc.key" \
+    -out "${NGINX_CERT_DIR}/soc.crt" \
+    -subj "/C=FR/ST=Bourgogne/L=Auxerre/O=Home SOC/CN=${NODE_IP}" \
+    -addext "subjectAltName=IP:${NODE_IP}"
 fi
+chmod 600 "${NGINX_CERT_DIR}/soc.key"
+chmod 644 "${NGINX_CERT_DIR}/soc.crt"
+
+echo "[*] Configuration du reverse proxy"
+# Deux ports distincts plutôt que deux noms sur le 443 : on accède au lab
+# par IP, sans DNS, donc nginx ne pourrait pas distinguer deux sites.
+cat > /etc/nginx/sites-available/soc <<EOF
+# TheHive — https://${NODE_IP}:${THEHIVE_HTTPS_PORT}
+server {
+  listen ${THEHIVE_HTTPS_PORT} ssl;
+  server_name thehive;
+
+  ssl_certificate     ${NGINX_CERT_DIR}/soc.crt;
+  ssl_certificate_key ${NGINX_CERT_DIR}/soc.key;
+
+  # TheHive pousse des mises à jour en continu : pas de mise en tampon,
+  # et des délais longs pour les imports de pièces jointes volumineuses.
+  proxy_connect_timeout 600;
+  proxy_send_timeout    600;
+  proxy_read_timeout    600;
+  send_timeout          600;
+  client_max_body_size  2G;
+  proxy_buffering       off;
+  client_header_buffer_size 8k;
+
+  location / {
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";
+    proxy_pass         http://127.0.0.1:9000/;
+    proxy_http_version 1.1;
+  }
+}
+
+# Cortex — https://${NODE_IP}:${CORTEX_HTTPS_PORT}
+server {
+  listen ${CORTEX_HTTPS_PORT} ssl;
+  server_name cortex;
+
+  ssl_certificate     ${NGINX_CERT_DIR}/soc.crt;
+  ssl_certificate_key ${NGINX_CERT_DIR}/soc.key;
+
+  proxy_connect_timeout 600;
+  proxy_send_timeout    600;
+  proxy_read_timeout    600;
+  send_timeout          600;
+  client_max_body_size  2G;
+  proxy_buffering       off;
+
+  location / {
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains";
+    proxy_pass         http://127.0.0.1:9001/;
+    proxy_http_version 1.1;
+  }
+}
+EOF
+
+ln -sf /etc/nginx/sites-available/soc /etc/nginx/sites-enabled/soc
+rm -f /etc/nginx/sites-enabled/default
+nginx -t
+systemctl enable nginx
+systemctl restart nginx
+
+# ------------------------------------------------- Pare-feu (HOMESOC-11) --
+# Sans ce filtrage, 9000 et 9001 resteraient joignables en clair à côté du
+# HTTPS : le chiffrement serait purement décoratif. nginx, lui, passe par
+# 127.0.0.1, que ufw ne filtre pas.
+echo "[*] Configuration du pare-feu (SSH en premier, pour ne pas se couper l'accès)"
+ufw allow from "$LAB_SUBNET" to any port 22 proto tcp
+ufw allow from "$LAB_SUBNET" to any port "$THEHIVE_HTTPS_PORT" proto tcp
+ufw allow from "$LAB_SUBNET" to any port "$CORTEX_HTTPS_PORT" proto tcp
+ufw --force enable
 
 umask 077
 cat > "$CREDS_FILE" <<EOF
 # Lab Home SOC — VM thehive (${NODE_IP})
 # Généré le $(date '+%F %T') par install/thehive.sh
-# NE JAMAIS COMMITTER CE FICHIER (voir .gitignore : *password*, *secret*)
+# NE JAMAIS COMMITTER CE FICHIER (voir .gitignore : *password*, *secret*, *credential*)
 thehive_version=${THEHIVE_VERSION}
-thehive_url=http://${NODE_IP}:9000
+thehive_url=https://${NODE_IP}:${THEHIVE_HTTPS_PORT}
 thehive_secret_key=${THEHIVE_SECRET}
 cortex_version=${CORTEX_VERSION}
-cortex_url=http://${NODE_IP}:9001
+cortex_url=https://${NODE_IP}:${CORTEX_HTTPS_PORT}
 cortex_secret_key=${CORTEX_SECRET}
 cortex_api_key=${CORTEX_API_KEY:-<à générer, voir ci-dessous>}
 cassandra_cluster=${CASSANDRA_CLUSTER}
 elasticsearch_url=http://127.0.0.1:9200 (local, index thehive + cortex)
+tls_cert=${NGINX_CERT_DIR}/soc.crt
 EOF
 
 echo
 echo "===================== VÉRIFICATION ====================="
 nodetool status | grep '^UN' | awk '{print "Cassandra     : " $1 " " $2 " (" $3 ")"}'
 curl -s "http://127.0.0.1:9200" | jq -r '"Elasticsearch : " + .version.number + " (cluster " + .cluster_name + ")"'
-echo "TheHive       : HTTP $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9000) sur le port 9000"
-echo "Cortex        : HTTP $(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9001) sur le port 9001"
+echo "TheHive       : HTTP $(curl -sk -o /dev/null -w '%{http_code}' "https://127.0.0.1:${THEHIVE_HTTPS_PORT}") sur le port ${THEHIVE_HTTPS_PORT} (HTTPS)"
+echo "Cortex        : HTTP $(curl -sk -o /dev/null -w '%{http_code}' "https://127.0.0.1:${CORTEX_HTTPS_PORT}") sur le port ${CORTEX_HTTPS_PORT} (HTTPS)"
+ufw status | grep -E '^(Status|22|94)' | sed 's/^/Pare-feu      : /'
 echo "========================================================"
 echo
 echo "[+] Terminé. Identifiants et clés : ${CREDS_FILE}"
+echo "[+] TheHive : https://${NODE_IP}:${THEHIVE_HTTPS_PORT}"
+echo "[+] Cortex  : https://${NODE_IP}:${CORTEX_HTTPS_PORT}"
+echo
+echo "    Certificat auto-signé : le navigateur affichera"
+echo "    NET::ERR_CERT_AUTHORITY_INVALID au premier accès, c'est attendu."
 echo
 echo "    ÉTAPES MANUELLES RESTANTES (interface web, une seule fois) :"
 echo
-echo "    1. Cortex — http://${NODE_IP}:9001"
+echo "    1. Cortex — https://${NODE_IP}:${CORTEX_HTTPS_PORT}"
 echo "       a. « Update Database », puis créer le compte superadmin"
-echo "       b. Organizations → créer l'organisation « home-soc »"
-echo "       c. Dans home-soc → Users → créer un utilisateur avec les rôles"
-echo "          « read » et « analyze » (PAS superadmin), puis Create API Key"
+echo "       b. Organizations → créer une organisation de travail (ex. home-soc)"
+echo "          L'organisation « cortex » est réservée aux superadmins et ne"
+echo "          permet pas de créer d'analystes."
+echo "       c. Dans cette organisation → Users → créer un utilisateur avec les"
+echo "          rôles « read » et « analyze », puis Create API Key"
 echo "       d. Relancer ce script avec la clé pour câbler le connecteur :"
 echo "             sudo CORTEX_API_KEY=<clé> $0"
 echo
-echo "    2. TheHive — http://${NODE_IP}:9000"
+echo "    2. TheHive — https://${NODE_IP}:${THEHIVE_HTTPS_PORT}"
 echo "       Se connecter avec admin@thehive.local / secret, puis changer"
 echo "       immédiatement ce mot de passe par défaut."
-echo
