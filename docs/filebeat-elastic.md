@@ -1,4 +1,4 @@
-# HOMESOC-13 — Filebeat : alertes Wazuh → Elasticsearch
+#  Filebeat : alertes Wazuh → Elasticsearch
 
 Tâche terminée le 27/09/2026.
 
