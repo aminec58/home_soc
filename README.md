@@ -1,4 +1,4 @@
-# 🛡️ Home SOC — Security Operations Center
+#  Home SOC — Security Operations Center
 
 > Projet étudiant de cybersécurité — IUT Auxerre, Réseaux & Télécommunications  
 > Équipe : Amine Cherif · Adem Romdhane
