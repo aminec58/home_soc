@@ -70,7 +70,7 @@ Dans `/var/ossec/etc/rules/local_rules.xml` sur le **manager** :
 
 ```xml
 <group name="windows,authentication_failures,">
-  <rule id="100111" level="12" frequency="6" timeframe="120">
+  <rule id="100111" level="12" frequency="6" timeframe="120" ignore="900">
     <if_matched_sid>60122</if_matched_sid>
     <description>Brute force RDP/SMB : échecs d'authentification Windows répétés (4625) depuis $(win.eventdata.ipAddress)</description>
     <mitre>
@@ -85,6 +85,7 @@ Les réglages :
 - `if_matched_sid 60122` → agrège tous les 4625 ; **RDP et SMB passent par cette unique règle**, là où SSH nécessitait un groupe (5710/5716/5760).
 - `frequency 6` / `timeframe 120` → alerte dès le 6ᵉ échec en 120 s.
 - `level 12` → au-dessus du natif, classé « Level 12 or above » dans le dashboard.
+- `ignore 900` → une alerte au plus toutes les 15 min : un seul brute force ne suffit plus à déclencher la méta-règle de corrélation 100119 (3 détections `attack_stage` en 15 min).
 - ID **100111** : premier libre après 100110 (100100/100101 Sysmon, 100110 SSH).
 - `<same_source_ip />` volontairement absent : sur Windows l'IP source est dans `win.eventdata.ipAddress`, non recopiée dans le champ générique `srcip` → `<same_source_ip/>` n'agrégerait pas. En labo mono-attaquant le comptage est identique.
 
