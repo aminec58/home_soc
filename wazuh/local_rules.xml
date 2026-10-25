@@ -1,0 +1,39 @@
+<!--
+  Home SOC - Regles de detection personnalisees
+  A ajouter dans /var/ossec/etc/rules/local_rules.xml sur le manager Wazuh.
+  Auteur : Adem ROMDHANE
+-->
+
+<!-- Cas 7 : Persistance par cle de registre Run (Sysmon event 13) -->
+<group name="sysmon,persistence,">
+  <rule id="100100" level="10">
+    <if_sid>61615</if_sid>
+    <field name="win.eventdata.targetObject" type="pcre2">(?i)\\CurrentVersion\\Run</field>
+    <description>Persistance : cle de demarrage Run ajoutee ($(win.eventdata.targetObject))</description>
+    <mitre>
+      <id>T1547.001</id>
+    </mitre>
+  </rule>
+</group>
+
+<!-- Cas 9 : Exfiltration DNS (Suricata event dns) -->
+<group name="ids,suricata,exfiltration,">
+  <!-- Signature : sous-domaine anormalement long -->
+  <rule id="100200" level="10">
+    <if_sid>86603</if_sid>
+    <field name="dns.rrname" type="pcre2">[a-zA-Z0-9]{20,}\.</field>
+    <description>Exfiltration DNS possible : sous-domaine anormalement long ($(dns.rrname))</description>
+    <mitre>
+      <id>T1048.003</id>
+    </mitre>
+  </rule>
+
+  <!-- Volume : trop de requetes DNS en peu de temps -->
+  <rule id="100201" level="12" frequency="20" timeframe="30">
+    <if_matched_sid>86603</if_matched_sid>
+    <description>Exfiltration DNS possible : volume anormal de requetes DNS (plus de 20 en 30s)</description>
+    <mitre>
+      <id>T1048.003</id>
+    </mitre>
+  </rule>
+</group>
