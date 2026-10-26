@@ -5,13 +5,14 @@
 
   - firewall-drop : commande prédéfinie (timeout_allowed yes), rien à ajouter côté agent
   - location local : exécutée par wazuh-execd sur l'agent qui a remonté l'alerte (victime-ubuntu)
-  - rules_id       : 100110 (custom, escalade de 5712) + 5712 (native, conservée en filet)
+  - rules_id       : 100110 (compte inexistant, escalade de 5712), 100120 (compte existant,
+                     escalade de 5763), 5712 (native, conservée en filet)
   - timeout 120 s  : levée automatique du blocage
   Doc : docs/active-response-wazuh.md
 -->
 <active-response>
   <command>firewall-drop</command>
   <location>local</location>
-  <rules_id>100110,5712</rules_id>
+  <rules_id>100110,100120,5712</rules_id>
   <timeout>120</timeout>
 </active-response>

@@ -67,6 +67,8 @@ Le principe commun : Wazuh garde en mémoire les alertes récentes, et `if_match
 </group>
 ```
 
+> **Mise à jour du 26/10/2026.** 100117 s'appuie désormais sur `if_matched_sid 100120` (brute force sur un compte existant) au lieu de 100110, réécrite pour ne couvrir que les comptes inexistants — voir [active-response-wazuh.md](active-response-wazuh.md#2-règles-de-détection--100110-et-100120). Validé par `wazuh-logtest` (8 échecs → 100120, puis connexion réussie → 100117 niveau 14).
+
 Points de réglage :
 - **`same_source_ip` / `same_location`** : la corrélation n'a de sens que si les deux étapes viennent du même acteur (même IP pour SSH, même agent pour Windows).
 - **`timeframe` est un attribut de `<rule>`, jamais une balise fille** — et ne s'emploie jamais sans `frequency`. 100117/100118 s'appuient sur la fenêtre par défaut de `if_matched_sid` et n'en déclarent donc pas.
