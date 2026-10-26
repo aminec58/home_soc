@@ -82,6 +82,8 @@ Dans `/var/ossec/etc/rules/local_rules.xml` sur le **manager** :
 </group>
 ```
 
+> **Mise à jour du 26/10/2026.** Cette forme (`frequency` + `if_matched_group`) a cessé de se déclencher. 100110 est désormais une escalade de la native 5712 (comptes inexistants), complétée par 100120 sur 5763 (comptes existants) — voir [active-response-wazuh.md](active-response-wazuh.md#2-règles-de-détection--100110-et-100120).
+
 Les réglages :
 - `if_matched_group authentication_failed` → agrège **5710, 5716 et 5760** (tous dans ce groupe), là où la 5712 native ne compte que les 5710.
 - `frequency 6` / `timeframe 120` → alerte dès le 6ᵉ échec en 120 s.
