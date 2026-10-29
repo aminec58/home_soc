@@ -49,7 +49,7 @@ POST _security/user/wazuh_filebeat
 { "password": "<mot_de_passe>", "roles": ["wazuh_filebeat"] }
 ```
 
-![Création du rôle et de l'utilisateur dans Dev Tools](img/homesoc-13/01-role-utilisateur.png)
+![Création du rôle et de l'utilisateur dans Dev Tools](../demo/filebeat-elastic/01-role-utilisateur.png)
 
 ## 2. Installation sur le manager
 
@@ -109,9 +109,9 @@ cd /opt/filebeat-elastic
 ./filebeat test config && ./filebeat test output
 ```
 
-![filebeat.yml et keystore](img/homesoc-13/02-config-keystore.png)
+![filebeat.yml et keystore](../demo/filebeat-elastic/02-config-keystore.png)
 
-![test config et test output](img/homesoc-13/03-test-output.png)
+![test config et test output](../demo/filebeat-elastic/03-test-output.png)
 
 ## 4. Service systemd
 
@@ -140,7 +140,7 @@ journalctl -u filebeat-elastic --no-pager | grep -iE 'template|pipeline|establis
 
 Au démarrage, Filebeat charge le pipeline `filebeat-8.19.21-wazuh-alerts-pipeline` et le template `wazuh`, puis établit la connexion :
 
-![Logs du service filebeat-elastic](img/homesoc-13/04-service-logs.png)
+![Logs du service filebeat-elastic](../demo/filebeat-elastic/04-service-logs.png)
 
 ## 5. Vérification
 
@@ -153,7 +153,7 @@ GET wazuh-alerts-*/_mapping/field/agent.name
 
 Au moment de la capture, l'index du jour contient 174 alertes, soit tout ce que Wazuh avait produit depuis minuit. Le champ `agent.name` est en `keyword` : le mapping vient bien du template Wazuh.
 
-![Index wazuh-alerts et mapping](img/homesoc-13/05-index-mapping.png)
+![Index wazuh-alerts et mapping](../demo/filebeat-elastic/05-index-mapping.png)
 
 Pour tester en direct, tenter une connexion SSH avec un utilisateur inexistant sur `victime-ubuntu` (`ssh inexistant@<IP_victime>`). Elle déclenche la règle 5710, qui apparaît quelques secondes plus tard :
 
