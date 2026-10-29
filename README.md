@@ -159,6 +159,27 @@ Chaque cas d'attaque est documenté dans `docs/runbooks/`. Rejouer un cas, véri
 
 ---
 
+## Démos vidéo
+
+Trois scénarios rejoués depuis Kali, puis détectés dans Wazuh. Cliquer sur un aperçu pour ouvrir la vidéo complète.
+
+### 01 · Reconnaissance — scan `nmap -sS`
+Suricata repère le scan (signatures ET SCAN), les alertes remontent dans Wazuh via la règle 86601.
+
+[![Reconnaissance](Vid%C3%A9os/01-recon.gif)](Vid%C3%A9os/01-recon-github.mp4)
+
+### 02 · Brute force SSH — `hydra` + rockyou.txt
+Règle custom 100120 (niveau 12, MITRE T1110), puis blocage automatique de l'IP par Active Response.
+
+[![Brute force SSH](Vid%C3%A9os/02-ssh-bruteforce.gif)](Vid%C3%A9os/02-ssh-bruteforce-github.mp4)
+
+### 03 · Compromission — connexion SSH après brute force
+Échecs en rafale suivis d'un succès : règle 100117 (niveau 14, MITRE T1110 + T1078).
+
+[![Compromission](Vid%C3%A9os/03-compromission.gif)](Vid%C3%A9os/03-compromission-github.mp4)
+
+---
+
 ## Cas d'attaques simulés
 
 | # | Nom | ATT&CK | Porteur |
