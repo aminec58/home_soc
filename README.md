@@ -161,22 +161,47 @@ Chaque cas d'attaque est documenté dans `docs/runbooks/`. Rejouer un cas, véri
 
 ## Démos vidéo
 
-Trois scénarios rejoués depuis Kali, puis détectés dans Wazuh. Cliquer sur un aperçu pour ouvrir la vidéo complète.
+Huit scénarios d'attaque rejoués depuis Kali ou le contrôleur de domaine, puis détectés dans Wazuh. Chaque aperçu est cliquable et ouvre la vidéo complète.
 
 ### 01 · Reconnaissance — scan `nmap -sS`
-Suricata repère le scan (signatures ET SCAN), les alertes remontent dans Wazuh via la règle 86601.
+Suricata repère le scan (signatures ET SCAN) ; les alertes remontent dans Wazuh via la règle 86601.
 
 [![Reconnaissance](Vid%C3%A9os/01-recon.gif)](Vid%C3%A9os/01-recon-github.mp4)
 
 ### 02 · Brute force SSH — `hydra` + rockyou.txt
-Règle custom 100120 (niveau 12, MITRE T1110), puis blocage automatique de l'IP par Active Response.
+Échecs d'authentification agrégés par la règle custom 100120 (niveau 12, MITRE T1110).
 
 [![Brute force SSH](Vid%C3%A9os/02-ssh-bruteforce.gif)](Vid%C3%A9os/02-ssh-bruteforce-github.mp4)
 
 ### 03 · Compromission — connexion SSH après brute force
-Échecs en rafale suivis d'un succès : règle 100117 (niveau 14, MITRE T1110 + T1078).
+Échecs en rafale suivis d'un succès : règle de corrélation 100117 (niveau 14, MITRE T1110 + T1078).
 
 [![Compromission](Vid%C3%A9os/03-compromission.gif)](Vid%C3%A9os/03-compromission-github.mp4)
+
+### 04 · Active Response — blocage automatique de l'IP
+Le brute force déclenche `firewall-drop` : l'IP de l'attaquant est bloquée puis relâchée, et l'action est tracée (règle 651).
+
+[![Active Response](Vid%C3%A9os/04-active-response.gif)](Vid%C3%A9os/04-active-response-github.mp4)
+
+### 05 · PowerShell suspect — commande encodée
+PowerShell `-EncodedCommand` lancé sur le DC : détecté côté Sysmon (EID 1) et sur le script déchiffré par le Script Block Logging (règles 100114 / 100115, MITRE T1059.001).
+
+[![PowerShell suspect](Vid%C3%A9os/06-powershell.gif)](Vid%C3%A9os/06-powershell-github.mp4)
+
+### 06 · Mimikatz — accès à la mémoire de LSASS
+Sysmon Event 10 détecte l'ouverture du handle sur `lsass.exe` (règle 100116, niveau 14, MITRE T1003.001) — même quand le dump échoue.
+
+[![Mimikatz / LSASS](Vid%C3%A9os/07-mimikatz.gif)](Vid%C3%A9os/07-mimikatz-github.mp4)
+
+### 07 · Kill chain complète — corrélation multi-étapes
+Ajout admin → PowerShell → Mimikatz : la méta-règle 100119 (niveau 15) corrèle l'ensemble de la chaîne d'intrusion.
+
+[![Kill chain complète](Vid%C3%A9os/08-killchain.gif)](Vid%C3%A9os/08-killchain-github.mp4)
+
+### 08 · Synthèse — vue d'ensemble des détections
+Dashboard Threat Hunting : répartition des niveaux d'alerte et des techniques MITRE ATT&CK observées sur le lab.
+
+[![Synthèse](Vid%C3%A9os/09-synthese.gif)](Vid%C3%A9os/09-synthese-github.mp4)
 
 ---
 
