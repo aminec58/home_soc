@@ -109,7 +109,7 @@ Dans `/var/ossec/etc/rules/local_rules.xml` sur le **manager**. ID **100116** : 
   <rule id="100116" level="14">
     <if_group>sysmon_event_10</if_group>
     <field name="win.eventdata.targetImage" type="pcre2">(?i)\\lsass\.exe$</field>
-    <field name="win.eventdata.grantedAccess" type="pcre2">(?i)^0x(1010|1038|1410|1438|143a|147a|1f1fff|1fffff)$</field>
+    <field name="win.eventdata.grantedAccess" type="pcre2">(?i)^0x(1010|1038|1410|1438|143a|147a|1f0fff|1f1fff|1fffff)$</field>
     <description>Credential dumping : acces memoire LSASS ($(win.eventdata.grantedAccess)) depuis $(win.eventdata.sourceImage)</description>
     <mitre>
       <id>T1003.001</id>
@@ -122,7 +122,7 @@ Dans `/var/ossec/etc/rules/local_rules.xml` sur le **manager**. ID **100116** : 
 Les réglages :
 - `if_group sysmon_event_10` → évaluée sur chaque ProcessAccess décodé.
 - `targetImage …lsass\.exe$` → le groupe seul couvre **tous** les ProcessAccess ; le filtre sur la cible est indispensable.
-- `grantedAccess` dans l'ensemble des masques de lecture du credential dumping. `0x1010` (= `PROCESS_QUERY_LIMITED_INFORMATION + PROCESS_VM_READ`) est celui réellement observé ; les autres (`0x1410`, `0x143A`, `0x1FFFFF`…) couvrent les autres modes/outils, et correspondent à ceux que la config Sysmon elle-même juge dignes d'intérêt.
+- `grantedAccess` dans l'ensemble des masques de lecture du credential dumping. `0x1010` (= `PROCESS_QUERY_LIMITED_INFORMATION + PROCESS_VM_READ`) est celui réellement observé ; les autres (`0x1410`, `0x143A`, `0x1F0FFF`, `0x1FFFFF`…) couvrent les autres modes/outils, et correspondent à ceux que la config Sysmon elle-même juge dignes d'intérêt.
 - `level 14` → au-dessus du niveau 12 « forte importance » des cas précédents, pour marquer le caractère **critique** (dump de secrets sur un DC).
 - `T1003.001` (*OS Credential Dumping: LSASS Memory*), groupe `credential_access`.
 
