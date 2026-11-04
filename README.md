@@ -161,7 +161,7 @@ Chaque cas d'attaque est documenté dans `docs/runbooks/`. Rejouer un cas, véri
 
 ## Démos vidéo
 
-Huit scénarios d'attaque rejoués depuis Kali ou le contrôleur de domaine, puis détectés dans Wazuh. Chaque aperçu est cliquable et ouvre la vidéo complète.
+Quatorze scénarios d'attaque rejoués depuis Kali ou le contrôleur de domaine, puis détectés dans Wazuh. Chaque aperçu est cliquable et ouvre la vidéo complète.
 
 ### 01 · Reconnaissance — scan `nmap -sS`
 Suricata repère le scan (signatures ET SCAN) ; les alertes remontent dans Wazuh via la règle 86601.
@@ -204,6 +204,30 @@ Dashboard Threat Hunting : répartition des niveaux d'alerte et des techniques M
 [![Synthèse](Vid%C3%A9os/09-synthese.gif)](Vid%C3%A9os/09-synthese-github.mp4)
 
 ---
+
+### 09 · Scan réseau — découverte de services `nmap`
+
+[![Scan réseau](Vid%C3%A9os/10-scan-reseau.gif)](Vid%C3%A9os/10-scan-reseau-github.mp4)
+
+### 10 · Persistance — clé de registre Run + tâche planifiée
+
+[![Persistance](Vid%C3%A9os/11-persistance.gif)](Vid%C3%A9os/11-persistance-github.mp4)
+
+### 11 · Web shell — dépôt `.php` + requêtes d'attaque
+
+[![Web shell](Vid%C3%A9os/12-web-shell.gif)](Vid%C3%A9os/12-web-shell-github.mp4)
+
+### 12 · Exfiltration DNS — tunneling vers sous-domaines longs
+
+[![Exfiltration DNS](Vid%C3%A9os/13-exfiltration-dns.gif)](Vid%C3%A9os/13-exfiltration-dns-github.mp4)
+
+### 13 · Intégrité fichiers (FIM) — création / modification / suppression
+
+[![FIM](Vid%C3%A9os/14-fim.gif)](Vid%C3%A9os/14-fim-github.mp4)
+
+### 14 · Réponse à incident — TheHive + Cortex
+
+[![Réponse à incident](Vid%C3%A9os/15-reponse-thehive.gif)](Vid%C3%A9os/15-reponse-thehive-github.mp4)
 
 ## Cas d'attaques simulés
 
