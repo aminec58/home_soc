@@ -1,0 +1,8 @@
+#!/bin/sh
+# Lanceur de l'intégration Wazuh → TheHive.
+# Destination : /var/ossec/integrations/custom-w2thive (root:wazuh, 750),
+# à côté de custom-w2thive.py (copie de thehive/integration-wazuh.py).
+# Exécute le script Python avec l'interpréteur embarqué de Wazuh, qui contient
+# thehive4py (voir docs/thehive-integration.md).
+WAZUH_PATH="${WAZUH_PATH:-/var/ossec}"
+exec "${WAZUH_PATH}/framework/python/bin/python3" "$(dirname "$0")/custom-w2thive.py" "$@"

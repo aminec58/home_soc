@@ -74,7 +74,7 @@ L'empreinte du CA d'Elasticsearch a été écrite dans `kibana.yml` lors de l'en
 ssh -t <utilisateur>@<IP_ELASTIC> "sudo grep -o 'ca_trusted_fingerprint: [0-9a-f]*' /etc/kibana/kibana.yml"
 ```
 
-Contenu de `/opt/filebeat-elastic/filebeat.yml` :
+Contenu de `/opt/filebeat-elastic/filebeat.yml` (versionné dans [`elastic/filebeat/filebeat.yml`](../elastic/filebeat/filebeat.yml)) :
 
 ```yaml
 filebeat.modules:
@@ -115,7 +115,7 @@ cd /opt/filebeat-elastic
 
 ## 4. Service systemd
 
-Contenu de `/etc/systemd/system/filebeat-elastic.service` :
+Contenu de `/etc/systemd/system/filebeat-elastic.service` (versionné dans [`elastic/filebeat/filebeat-elastic.service`](../elastic/filebeat/filebeat-elastic.service)) :
 
 ```ini
 [Unit]
@@ -175,4 +175,4 @@ GET wazuh-alerts-*/_search
 
 ## Suite
 
-HOMESOC-14 (index et mapping) et HOMESOC-15 (dashboards Kibana) s'appuient sur les index `wazuh-alerts-4.x-*`.
+La vérification des index et du mapping, puis les dashboards Kibana (voir [`detections.md`](detections.md#2-dashboards-kibana)), s'appuient sur les index `wazuh-alerts-4.x-*`.
