@@ -1,4 +1,4 @@
-# Runbook — VM victime Ubuntu (agent Wazuh)
+# Construction — VM victime Ubuntu (agent Wazuh)
 
 ## Contexte
 - Objectif : ajouter une VM Linux victime instrumentée, remontée dans Wazuh.
@@ -14,6 +14,17 @@ echo "deb [signed-by=/usr/share/keyrings/wazuh.gpg] https://packages.wazuh.com/4
   | sudo tee /etc/apt/sources.list.d/wazuh.list
 sudo apt update
 ```
+
+Installer **directement la version du manager** (4.9.2) et l'épingler, avec un nom d'agent propre, évite les problèmes 1 à 3 ci-dessous :
+
+```bash
+sudo WAZUH_MANAGER=192.168.159.141 WAZUH_AGENT_NAME=victime-ubuntu \
+  apt-get install -y wazuh-agent=4.9.2-1
+sudo apt-mark hold wazuh-agent
+sudo systemctl daemon-reload && sudo systemctl enable --now wazuh-agent
+```
+
+Collecte SSH : ajouter le bloc `localfile` sur `/var/log/auth.log` (voir [`bruteforce-ssh.md`](../bruteforce-ssh.md#1-collecte)).
 
 ## Problèmes rencontrés et solutions
 
@@ -47,12 +58,7 @@ sudo /var/ossec/bin/wazuh-control status   # 6 démons "running"
 ```
 Agent `victime-ubuntu` (ID 002) visible et **Active** dans le dashboard.
 
-## Détection validée
-- **Bruteforce SSH** : attaque `hydra` depuis Kali → règle native **5712 "sshd: brute force"**
-  (niveau 10) remontée dans le dashboard.
-- MITRE ATT&CK : **T1110 – Brute Force** (tactique *Credential Access*).
-- Vérification : filtre `rule.id:5712` sur l'agent `victime-ubuntu` → 1 alerte.
-
-## Prochaines étapes
-- [ ] Test FIM / auditd (*who-data*) : modification de `/etc/passwd`, `/etc/sudoers`.
-- [ ] Rédiger une ou deux règles de détection custom.
+## Détections portées par cette VM
+- **Brute force SSH** (cas 1) : natives 5712 / 5763 escaladées en 100110 / 100120, corrélation 100117, Active Response `firewall-drop`.
+- **Suricata** (cas 3, 9) : sonde sur `ens33`, `eve.json` collecté par l'agent — voir [`install/suricata.md`](../../install/suricata.md).
+- **FIM** (cas 8, 10) : `/etc` et `/var/www` surveillés par syscheck.

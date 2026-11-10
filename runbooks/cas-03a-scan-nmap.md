@@ -1,8 +1,10 @@
-# Runbook — Cas 3 : Scan réseau nmap (Suricata NIDS)
+# Runbook — Cas 3a : Scan réseau nmap (Suricata NIDS)
+
+> Rejoué sur le lab d'Adem (VirtualBox, `192.168.56.0/24`). Complément : [cas 3b](cas-03b-scan-suricata.md).
 
 | | |
 |---|---|
-| **Cas** | 3 |
+| **Cas** | 3a |
 | **Hôte sonde / cible** | victime-ubuntu (`192.168.56.110`, Suricata sur `enp0s8`) |
 | **Attaquant (labo)** | Kali (`192.168.56.109`) |
 | **Source de log** | Suricata → `/var/log/suricata/eve.json` → agent Wazuh (002) |

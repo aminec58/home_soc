@@ -1,4 +1,4 @@
-# Runbook — DC01 : contrôleur de domaine instrumenté
+# Construction — DC01 : contrôleur de domaine instrumenté
 
 Déploiement d'un endpoint Windows produisant de la télémétrie Sysmon
 consommée par le manager Wazuh.
@@ -25,10 +25,10 @@ Installer l'édition **Standard (expérience de bureau)**.
 ## 2. Réseau et promotion Active Directory
 
 ```powershell
-.\setup-dc01.ps1 -Password 'VotreMotDePasse'
+.\scripts\setup-dc01.ps1          # le mot de passe est demandé de façon masquée
 ```
 
-Le script fixe l'adressage, définit le mot de passe du compte Administrateur
+Le script ([`scripts/setup-dc01.ps1`](../../scripts/setup-dc01.ps1)) fixe l'adressage, définit le mot de passe du compte Administrateur
 local, renomme la machine et promeut le serveur en contrôleur de domaine.
 Redémarrage automatique en fin d'exécution.
 
@@ -41,8 +41,10 @@ Get-ADDomain | Select-Object DNSRoot, NetBIOSName, DomainMode
 ## 3. Sysmon
 
 ```powershell
-.\install-sysmon.ps1
+.\scripts\install-sysmon.ps1
 ```
+
+Le script ([`scripts/install-sysmon.ps1`](../../scripts/install-sysmon.ps1)) utilise `sysmon/sysmonconfig.xml` s'il est présent dans le dépôt, sinon la configuration **sysmon-modular** figée à un commit précis. Cette configuration couvre l'accès à `lsass` (EID 10), validé au cas 6. Le cas 7 (clés `Run`, EID 13) a été rejoué sur le lab d'Adem avec la configuration SwiftOnSecurity : vérifier la couverture des clés `Run` avant de le rejouer sur DC01.
 
 ## 4. Agent Wazuh
 
