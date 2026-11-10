@@ -1,1 +1,16 @@
-*.sh text eol=lf
+# Fins de ligne : LF pour tout ce qui s'exécute sous Linux, CRLF pour PowerShell
+* text=auto
+*.sh   text eol=lf
+*.py   text eol=lf
+*.xml  text eol=lf
+*.yml  text eol=lf
+*.md   text eol=lf
+*.service text eol=lf
+thehive/custom-w2thive text eol=lf
+*.ps1  text eol=crlf
+
+# Médias
+*.png  binary
+*.jpg  binary
+*.gif  binary
+*.mp4  binary

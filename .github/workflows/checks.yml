@@ -1,0 +1,49 @@
+name: checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Règles et configs Wazuh — XML bien formé, IDs uniques
+        run: |
+          python3 - <<'PY'
+          import glob, re, sys, xml.etree.ElementTree as ET
+          ok = True
+          for f in glob.glob("wazuh/**/*.xml", recursive=True) + glob.glob("wazuh/**/*.conf", recursive=True):
+              text = re.sub(r"^\s*<\?xml[^>]*\?>", "", open(f, encoding="utf-8").read())
+              try:
+                  root = ET.fromstring("<root>" + text + "</root>")
+              except ET.ParseError as e:
+                  print(f"::error file={f}::{e}"); ok = False; continue
+              ids = [r.get("id") for r in root.iter("rule")]
+              dups = sorted({i for i in ids if ids.count(i) > 1})
+              if dups:
+                  print(f"::error file={f}::IDs de règle en double : {dups}"); ok = False
+              print(f"{f} : OK ({len(ids)} règles)")
+          sys.exit(0 if ok else 1)
+          PY
+
+      - name: Scripts shell — shellcheck
+        run: shellcheck -S error install/*.sh scripts/*.sh attacks/*.sh thehive/custom-w2thive
+
+      - name: Liens relatifs Markdown
+        run: |
+          python3 - <<'PY'
+          import glob, os, re, sys, urllib.parse
+          bad = 0
+          for f in glob.glob("**/*.md", recursive=True):
+              for link in re.findall(r"\]\(([^)\s]+)\)", open(f, encoding="utf-8").read()):
+                  if link.startswith(("http", "#", "mailto:")):
+                      continue
+                  path = os.path.normpath(os.path.join(os.path.dirname(f), urllib.parse.unquote(link.split("#")[0])))
+                  if not os.path.exists(path):
+                      print(f"::error file={f}::lien cassé : {link}"); bad += 1
+          sys.exit(1 if bad else 0)
+          PY
