@@ -1,8 +1,10 @@
-# Runbook — Cas 1 : Scan réseau / reconnaissance (Suricata NIDS)
+# Runbook — Cas 3b : Scan réseau / reconnaissance (sonde Suricata, signatures ET SCAN)
+
+> Complément du [cas 3a](cas-03a-scan-nmap.md) : même technique (T1046), vue sous l'angle de la sonde Suricata et de ses signatures.
 
 | | |
 |---|---|
-| **Cas** | 1 |
+| **Cas** | 3b |
 | **Hôte sonde** | victime-ubuntu (`192.168.159.20`, Suricata AF_PACKET sur `ens33`) |
 | **Source de log** | Suricata → `/var/log/suricata/eve.json` → agent Wazuh |
 | **Règle(s) Wazuh** | 86601 (alerte Suricata, native) |
@@ -32,7 +34,7 @@ Détection d'une activité de **scan réseau** (découverte d'hôtes, de ports o
    ```
 2. **Qualifier l'ampleur** — nombre d'alertes, fenêtre de temps, ports et hôtes visés. Un balayage large et rapide depuis une seule IP = scan actif en cours.
 3. **Qualifier la source** — IP interne ou externe ? Scanner légitime (audit de vulnérabilités planifié, outil de supervision) ou origine inconnue/hostile ?
-4. **Chercher la suite** — après la reconnaissance, rechercher des tentatives de connexion ou d'exploitation vers les services découverts : corréler avec les autres détections (p. ex. brute force SSH — cas 2) sur la même `src_ip`.
+4. **Chercher la suite** — après la reconnaissance, rechercher des tentatives de connexion ou d'exploitation vers les services découverts : corréler avec les autres détections (p. ex. brute force SSH — cas 1) sur la même `src_ip`.
 
 ## Remédiation
 

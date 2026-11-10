@@ -17,7 +17,7 @@ Kali (hydra) → sshd victime-ubuntu → auth.log → agent → manager
 |---|---|
 | Manager | Wazuh 4.9.2, `192.168.159.141` — porte la conf Active Response et les règles |
 | Agent (cible) | victime-ubuntu — Ubuntu 24.04, `192.168.159.20`, agent ID 002 — exécute le DROP |
-| Attaquant | Kali — `192.168.159.30`, hydra 9.7 |
+| Attaquant | Kali — `192.168.159.50`, hydra 9.7 (`192.168.159.30` sur les captures, avant réalignement de l'IP) |
 | Déclencheurs | **100110** (compte inexistant, escalade de 5712), **100120** (compte existant, escalade de 5763), 5712 en filet |
 | Réponse | `firewall-drop` (iptables), `location local`, `timeout` 120 s |
 | Collecte SSH | `/var/log/auth.log` (rsyslog) sur l'agent |
@@ -100,7 +100,7 @@ Bloc ajouté dans `/var/ossec/etc/ossec.conf`, dans `<ossec_config>`, juste avan
 Vérifications préalables :
 
 ```bash
-sudo grep -n white_list /var/ossec/etc/ossec.conf                          # 192.168.159.30 absente → Kali peut être bloquée
+sudo grep -n white_list /var/ossec/etc/ossec.conf                          # IP de Kali absente → Kali peut être bloquée
 sudo grep -n -A4 '<name>firewall-drop</name>' /var/ossec/etc/ossec.conf    # timeout_allowed yes
 ```
 
@@ -208,7 +208,7 @@ Celui de la 651 montre l'ordre envoyé par le manager : `data.command add`, `dat
 - Le blocage tombe au **8ᵉ échec** : l'attaquant ne peut plus se connecter depuis cette IP pendant le ban. La corrélation 100117 ne peut donc se produire qu'après la levée (ou depuis une autre IP, que `same_source_ip` ne rattache pas).
 - **100119 et les répétitions** : trois connexions réussies après un brute force (trois 100117) suffisent à déclencher la méta-règle, alors qu'il s'agit d'une seule étape. Un `ignore` sur 100117 éviterait ce comptage multiple.
 - Bloquer sur un simple brute force coupe aussi un utilisateur légitime qui se trompe de mot de passe, et un attaquant peut faire bloquer une IP usurpée.
-- Kali partage l'adresse `192.168.159.30` avec la VM elastic : à réaligner.
+- Kali partageait l'adresse `192.168.159.30` avec la VM elastic au moment des tests ; elle a depuis été réalignée en `192.168.159.50`.
 - `repeated_offenders` pour des bans progressifs sur les IP récidivistes.
 - Étendre l'AR : scan Suricata, et côté Windows (`netsh` / `route-null`) pour le brute force RDP/SMB (100111).
 - En production, bloquer sur un pare-feu ou un routeur plutôt que sur chaque hôte.

@@ -2,6 +2,9 @@
 # Répare /var/ossec/etc/rules/local_rules.xml et y installe UNE seule fois
 # les règles de corrélation 100117 / 100118 / 100119.
 #
+# NB : outil de réparation d'un fichier déjà en place. Pour une installation
+# neuve, déployer directement wazuh/local_rules.xml (référence complète).
+#
 # À lancer sur le manager Wazuh :
 #   sudo bash fix-correlation-rules.sh                  # simulation : montre le diff, ne touche à rien
 #   sudo bash fix-correlation-rules.sh --apply          # installe, teste (analysisd -t), redémarre
@@ -63,7 +66,7 @@ NEW_RULES = '''
 <group name="syslog,sshd,">
   <rule id="100117" level="14">
     <if_sid>5715</if_sid>
-    <if_matched_sid>100110</if_matched_sid>
+    <if_matched_sid>100120</if_matched_sid>
     <same_source_ip />
     <description>SSH : connexion réussie depuis $(srcip) après un brute force — compromission probable du compte</description>
     <mitre>

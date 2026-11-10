@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Évite qu'un simple brute force déclenche la méta-règle 100119 (3 × attack_stage en 15 min) :
 #   - 100111 (brute force RDP/SMB) : ignore="900" → une alerte au plus toutes les 15 min
-#   - 100110 (brute force SSH)     : retire attack_stage, ; pas d'ignore car 100117
-#     (if_matched_sid 100110) a besoin d'une 100110 récente pendant tout le brute force.
-#     L'étape SSH de la kill-chain est portée par 100117.
+#   - 100110 (brute force SSH)     : retire attack_stage, (l'étape SSH de la
+#     kill-chain est portée par 100117, corrélée sur 100120).
+#
+# NB : déjà intégré à wazuh/local_rules.xml ; ce script ne sert qu'à corriger
+# un fichier local_rules.xml antérieur sur un manager existant.
 #
 # À lancer sur le manager Wazuh :
 #   sudo bash tune-correlation-noise.sh            # simulation : montre le diff

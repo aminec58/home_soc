@@ -1,0 +1,28 @@
+# Filebeat 8 dédié (« filebeat-elastic ») sur le manager Wazuh :
+# envoie les alertes Wazuh vers Elasticsearch 8, en parallèle du Filebeat 7.10
+# livré avec Wazuh (qui reste branché sur le Wazuh indexer).
+# Destination : /opt/filebeat-elastic/filebeat.yml — doc : docs/filebeat-elastic.md
+# Remplacer <IP_ELASTIC> (192.168.159.30 sur le lab VMware) et <empreinte_CA>.
+# Le mot de passe ES_PWD est lu dans le keystore Filebeat, jamais en clair ici.
+
+filebeat.modules:
+  - module: wazuh
+    alerts:
+      enabled: true
+    archives:
+      enabled: false
+
+setup.template.json.enabled: true
+setup.template.json.path: /opt/filebeat-elastic/wazuh-template.json
+setup.template.json.name: wazuh
+setup.template.overwrite: true
+setup.ilm.enabled: false
+
+output.elasticsearch:
+  hosts: ["https://<IP_ELASTIC>:9200"]
+  username: wazuh_filebeat
+  password: "${ES_PWD}"
+  ssl.ca_trusted_fingerprint: "<empreinte_CA>"
+  ssl.verification_mode: certificate
+
+logging.metrics.enabled: false

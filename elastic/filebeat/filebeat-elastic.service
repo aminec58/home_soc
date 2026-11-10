@@ -1,0 +1,12 @@
+# Destination : /etc/systemd/system/filebeat-elastic.service
+[Unit]
+Description=Filebeat - alertes Wazuh vers Elasticsearch
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/opt/filebeat-elastic/filebeat --environment systemd -c /opt/filebeat-elastic/filebeat.yml --path.home /opt/filebeat-elastic
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

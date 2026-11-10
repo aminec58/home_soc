@@ -1,0 +1,21 @@
+<!--
+  Intégration Wazuh → TheHive : création d'une alerte TheHive pour chaque
+  alerte Wazuh de niveau >= 10.
+  À placer dans /var/ossec/etc/ossec.conf du MANAGER, dans <ossec_config>.
+  Valider avec wazuh-analysisd -t, puis redémarrer wazuh-manager.
+
+  - name     : doit commencer par custom- et correspondre au fichier
+               /var/ossec/integrations/custom-w2thive (+ custom-w2thive.py)
+  - hook_url : URL de TheHive (via nginx en HTTPS, certificat auto-signé)
+  - api_key  : clé API d'un compte TheHive autorisé à créer des alertes
+               (jamais versionnée : voir .env.example)
+  - level    : seuil de transmission, filtré par Wazuh avant l'appel du script
+  Doc : docs/thehive-integration.md
+-->
+<integration>
+  <name>custom-w2thive</name>
+  <hook_url>https://IP_THEHIVE:9443</hook_url>
+  <api_key>CLE_API_THEHIVE</api_key>
+  <level>10</level>
+  <alert_format>json</alert_format>
+</integration>
