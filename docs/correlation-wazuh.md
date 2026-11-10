@@ -5,7 +5,7 @@
 Au-delà des règles qui détectent une étape isolée (brute force, création de compte, PowerShell suspect…), on ajoute trois règles de **corrélation** qui relient plusieurs événements pour reconnaître un *scénario* d'attaque et non plus un fait unitaire. Une séquence « brute force **puis** connexion réussie depuis la même IP » est bien plus grave qu'un brute force seul : elle signale une **compromission probable**.
 
 ```
-étapes unitaires (100110/100111/100113…) → règles de corrélation (100117/100118/100119) → alerte niveau 14-15 « compromission probable » → dashboard
+étapes unitaires (100120/100111/100113…) → règles de corrélation (100117/100118/100119) → alerte niveau 14-15 « compromission probable » → dashboard
 ```
 
 ## Environnement
@@ -13,7 +13,7 @@ Au-delà des règles qui détectent une étape isolée (brute force, création d
 | Élément | Valeur |
 |---|---|
 | Cible SSH | victime-ubuntu — Ubuntu 24.04, `192.168.159.20`, VMnet8 (NAT) |
-| Attaquant | Kali — `192.168.159.30`, VMnet8, hydra 9.7 |
+| Attaquant | Kali — `192.168.159.50`, VMnet8, hydra 9.7 (`192.168.159.30` sur les captures, avant réalignement de l'IP) |
 | Wazuh | manager 4.9.2 (`192.168.159.141`), agent `victime-ubuntu` |
 | Fichier | `/var/ossec/etc/rules/local_rules.xml` sur le manager |
 
@@ -21,7 +21,7 @@ Au-delà des règles qui détectent une étape isolée (brute force, création d
 
 | ID | Scénario | Déclencheur | Niveau | MITRE |
 |---|---|---|---|---|
-| **100117** | brute force SSH **puis** login réussi, même IP | `100110` corrélée + `5715` natif + `same_source_ip` | 14 | T1110 + T1078 |
+| **100117** | brute force SSH **puis** login réussi, même IP | `100120` corrélée + `5715` natif + `same_source_ip` | 14 | T1110 + T1078 |
 | **100118** | compte Windows créé **puis** ajouté aux Administrateurs | `60109` natif corrélé + règle `100113` | 14 | T1136 + T1098 |
 | **100119** | méta kill-chain : 3 détections critiques en < 15 min | 3× groupe `attack_stage` en 900 s | 15 | — |
 
@@ -33,7 +33,7 @@ Le principe commun : Wazuh garde en mémoire les alertes récentes, et `if_match
 <group name="syslog,sshd,">
   <rule id="100117" level="14">
     <if_sid>5715</if_sid>
-    <if_matched_sid>100110</if_matched_sid>
+    <if_matched_sid>100120</if_matched_sid>
     <same_source_ip />
     <description>SSH : connexion réussie depuis $(srcip) après un brute force — compromission probable du compte</description>
     <mitre>
@@ -67,12 +67,12 @@ Le principe commun : Wazuh garde en mémoire les alertes récentes, et `if_match
 </group>
 ```
 
-> **Mise à jour du 26/10/2026.** 100117 s'appuie désormais sur `if_matched_sid 100120` (brute force sur un compte existant) au lieu de 100110, réécrite pour ne couvrir que les comptes inexistants — voir [active-response-wazuh.md](active-response-wazuh.md#2-règles-de-détection--100110-et-100120). Validé par `wazuh-logtest` (8 échecs → 100120, puis connexion réussie → 100117 niveau 14).
+100117 s'appuie sur **100120** (brute force sur un compte **existant**) : on ne peut réussir une connexion qu'après avoir deviné le mot de passe d'un compte qui existe. Jusqu'au 26/10, elle s'appuyait sur 100110, avant que celle-ci ne soit restreinte aux comptes inexistants (voir [bruteforce-ssh.md](bruteforce-ssh.md#évolution-de-la-règle)). Validé par `wazuh-logtest` : 8 échecs → 100120, puis connexion réussie → 100117 niveau 14.
 
 Points de réglage :
 - **`same_source_ip` / `same_location`** : la corrélation n'a de sens que si les deux étapes viennent du même acteur (même IP pour SSH, même agent pour Windows).
 - **`timeframe` est un attribut de `<rule>`, jamais une balise fille** — et ne s'emploie jamais sans `frequency`. 100117/100118 s'appuient sur la fenêtre par défaut de `if_matched_sid` et n'en déclarent donc pas.
-- **Le groupe `attack_stage`** est ce qui alimente la méta-règle 100119. Il a été ajouté aux règles de détection existantes **100111, 100113, 100114, 100115, 100116**. Il n'a **pas** été mis sur 100110 : l'étape SSH de la kill-chain est portée par 100117 (sinon un brute force seul, qui répète 100110, suffirait à nourrir 100119).
+- **Le groupe `attack_stage`** est ce qui alimente la méta-règle 100119. Il est porté par **100111, 100113, 100114, 100115, 100116** ainsi que par les corrélations 100117 et 100118. Il n'est **pas** sur 100110 ni 100120 : l'étape SSH de la kill-chain est portée par 100117 (sinon un brute force seul, qui répète ces alertes, suffirait à nourrir 100119).
 - **`ignore="900"` sur 100111** (brute force RDP/SMB) : une alerte au plus toutes les 15 min, pour qu'un seul brute force ne déclenche pas à lui seul la 100119.
 
 Validation **avant** redémarrage :
@@ -84,10 +84,10 @@ sudo systemctl restart wazuh-manager
 
 ## 3. Rejeu de l'attaque (SSH) depuis Kali
 
-Le scénario qui déclenche 100117 : un brute force, **puis** une connexion réussie depuis **la même machine** (Kali, `192.168.159.30`).
+Le scénario qui déclenche 100117 : un brute force sur un compte existant, **puis** une connexion réussie depuis **la même machine** (Kali).
 
 ```bash
-# 1. brute force → génère les alertes 100110 (srcip = 192.168.159.30)
+# 1. brute force sur le compte existant amin → génère les alertes 100120
 hydra -l amin -P /usr/share/wordlists/rockyou.txt ssh://192.168.159.20 -t 4 -I
 
 # 2. tout de suite après, connexion réussie depuis la MÊME IP
@@ -117,7 +117,7 @@ Le détail du document confirme la corrélation : `data.srcip = 192.168.159.30` 
 
 ## 5. Anti-faux-positif (100119)
 
-Avec `rule.id:100119` sur la même période → **0 résultat**. Un brute force seul, même long, ne doit pas être présenté comme une intrusion multi-étapes : grâce au retrait de `attack_stage` sur 100110 et à l'`ignore="900"` sur 100111, la méta-règle reste muette tant qu'il n'y a qu'une seule étape réelle. Elle n'alertera que lorsque plusieurs étapes **distinctes** (ex. brute force réussi *puis* création de compte) surviendront en moins de 15 min.
+Avec `rule.id:100119` sur la même période → **0 résultat**. Un brute force seul, même long, ne doit pas être présenté comme une intrusion multi-étapes : grâce à l'absence de `attack_stage` sur 100110 / 100120 et à l'`ignore="900"` sur 100111, la méta-règle reste muette tant qu'il n'y a qu'une seule étape réelle. Elle n'alertera que lorsque plusieurs étapes **distinctes** (ex. brute force réussi *puis* création de compte) surviendront en moins de 15 min.
 
 ## 6. Validation 100118 (Windows)
 
@@ -167,7 +167,7 @@ Point à noter dans le détail : la **3ᵉ étape** qui a complété la corréla
 |---|---|---|
 | `wazuh-analysisd -t` → `Invalid option 'timeframe'` | `timeframe` écrit comme balise fille de `<rule>` | `timeframe`/`frequency` sont des **attributs** de `<rule>`, et jamais `timeframe` sans `frequency` |
 | `XMLERR: Element not opened (line 8)`, le manager ne recharge plus ses règles | `tee -a` a dupliqué les blocs, puis un `awk` « anti-doublons » a cassé le XML | repartir d'une sauvegarde `.bak.*` bien formée, éditer le fichier via un parseur XML (cf. `scripts/fix-correlation-rules.sh`) |
-| 100117 jamais déclenchée malgré un login réussi | le login venait du poste Windows (`192.168.159.1`), pas de Kali (`.30`) → `same_source_ip` ne correspond pas | refaire la connexion réussie **depuis Kali** |
+| 100117 jamais déclenchée malgré un login réussi | le login venait du poste Windows (`192.168.159.1`), pas de Kali → `same_source_ip` ne correspond pas | refaire la connexion réussie **depuis Kali** |
 | « Permission denied / mot de passe faux » sur Kali | `sudo ssh …` : c'était le mot de passe **sudo de l'utilisateur kali** qui était demandé | lancer `ssh …` **sans** `sudo` |
 | Mot de passe SSH rejeté en le tapant | compte `amin` (et non `amine`) ; attention aussi au clavier QWERTY/AZERTY de Kali | utiliser `amin`, `setxkbmap fr` si besoin |
 

@@ -13,13 +13,13 @@ Kali (Metasploit smb_login) → SMB DC01 → canal Security (eventchannel) → a
 | Élément | Valeur |
 |---|---|
 | Cible | DC01 — Windows Server 2025 Eval, domaine `lab.local` (NetBIOS LAB), `192.168.159.10`, VMnet8 (NAT), RDP + SMB actifs |
-| Attaquant | Kali — `192.168.159.30`, VMnet8, Metasploit Framework |
+| Attaquant | Kali — `192.168.159.50`, VMnet8, Metasploit Framework (`192.168.159.30` sur les captures, avant réalignement de l'IP) |
 | Wazuh | manager 4.9.2 (`192.168.159.141`), agent 4.9.2 `DC01` (ID 001) |
 | Journal source | canal **Security** (eventchannel), collecté par défaut par l'agent Windows |
 
 ## 1. Pré-requis sur DC01 — rien à ajouter côté agent
 
-Comme pour SSH (collecte journald), l'agent Windows 4.9 collecte **le canal Security par défaut**, ce qui couvre les 4625. Deux réglages système restent à activer, en **PowerShell administrateur** (le shell SSH par défaut est `cmd`, qui ne connaît pas les cmdlets) :
+Comme pour SSH, rien à ajouter côté collecte : l'agent Windows 4.9 collecte **le canal Security par défaut**, ce qui couvre les 4625. Deux réglages système restent à activer, en **PowerShell administrateur** (le shell SSH par défaut est `cmd`, qui ne connaît pas les cmdlets) :
 
 ```powershell
 # audit des échecs d'ouverture de session (GUID = indépendant de la langue)
