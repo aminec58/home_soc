@@ -1,10 +1,33 @@
 <!--
-  Home SOC - Regles de detection personnalisees
-  A ajouter dans /var/ossec/etc/rules/local_rules.xml sur le manager Wazuh.
-  Auteur : Adem ROMDHANE
+  Home SOC — règles de détection personnalisées (état validé sur le lab)
+  Destination : /var/ossec/etc/rules/local_rules.xml sur le manager Wazuh 4.9.2
+
+  Déploiement :
+    sudo cp wazuh/local_rules.xml /var/ossec/etc/rules/local_rules.xml
+    sudo chown root:wazuh /var/ossec/etc/rules/local_rules.xml
+    sudo chmod 660 /var/ossec/etc/rules/local_rules.xml
+    sudo /var/ossec/bin/wazuh-analysisd -t && sudo systemctl restart wazuh-manager
+
+  L'ordre du fichier compte : une règle enfant (if_sid / if_matched_sid) doit
+  être déclarée après sa règle parente.
+
+  Plages d'ID :
+    100100        persistance (cas 7)
+    100110-100116 détections unitaires (cas 1, 2, 4, 5, 6)
+    100117-100119 corrélation
+    100120        brute force SSH sur compte existant (cas 1)
+    100200-100201 exfiltration DNS (cas 9)
+    Prochain ID libre : 100121
+
+  Groupe attack_stage : porté par les étapes qui alimentent la méta-règle
+  100119. Volontairement absent de 100110 et 100120 (un brute force seul ne
+  doit pas suffire à déclencher la kill chain ; l'étape SSH est portée par 100117).
 -->
 
-<!-- Cas 7 : Persistance par cle de registre Run (Sysmon event 13) -->
+<!-- ====================================================================== -->
+<!-- Cas 7 — Persistance par clé de registre Run (Sysmon EID 13)            -->
+<!-- Doc : docs/detections.md · runbooks/cas-07-persistance-run-tache.md    -->
+<!-- ====================================================================== -->
 <group name="sysmon,persistence,">
   <rule id="100100" level="10">
     <if_sid>61615</if_sid>
@@ -16,7 +39,160 @@
   </rule>
 </group>
 
-<!-- Cas 9 : Exfiltration DNS (Suricata event dns) -->
+<!-- ====================================================================== -->
+<!-- Cas 1 — Brute force SSH                                                -->
+<!-- 100110 : comptes inexistants (escalade de la native 5712)              -->
+<!-- 100120 : comptes existants (escalade de la native 5763)                -->
+<!-- Doc : docs/bruteforce-ssh.md · docs/active-response-wazuh.md           -->
+<!-- ====================================================================== -->
+<group name="syslog,sshd,">
+  <rule id="100110" level="12">
+    <if_sid>5712</if_sid>
+    <description>SSH brute force : échecs d'authentification répétés depuis $(srcip)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>authentication_failures,pci_dss_10.2.4,pci_dss_11.4,</group>
+  </rule>
+
+  <rule id="100120" level="12">
+    <if_sid>5763</if_sid>
+    <description>SSH brute force sur un compte existant ($(dstuser)) depuis $(srcip)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>authentication_failures,pci_dss_10.2.4,pci_dss_11.4,</group>
+  </rule>
+</group>
+
+<!-- ====================================================================== -->
+<!-- Cas 2 — Brute force RDP/SMB (échecs 4625 agrégés)                      -->
+<!-- Doc : docs/bruteforce-rdp-smb-wazuh.md                                 -->
+<!-- ====================================================================== -->
+<group name="windows,authentication_failures,">
+  <rule id="100111" level="12" frequency="6" timeframe="120" ignore="900">
+    <if_matched_sid>60122</if_matched_sid>
+    <description>Brute force RDP/SMB : échecs d'authentification Windows répétés (4625) depuis $(win.eventdata.ipAddress)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>authentication_failures,pci_dss_10.2.4,pci_dss_11.4,attack_stage,</group>
+  </rule>
+</group>
+
+<!-- ====================================================================== -->
+<!-- Cas 4 — Ajout d'un compte au groupe builtin Administrateurs (4732)     -->
+<!-- La création (4720) reste couverte par la native 60109 (niveau 8).      -->
+<!-- Doc : docs/user-admin-wazuh.md                                         -->
+<!-- ====================================================================== -->
+<group name="windows,windows_security,account_management,">
+  <rule id="100113" level="12">
+    <if_sid>60103</if_sid>
+    <field name="win.system.eventID">^4732$</field>
+    <field name="win.eventdata.targetSid">^S-1-5-32-544$</field>
+    <description>Windows : élévation de privilèges — compte ajouté aux Administrateurs par $(win.eventdata.subjectUserName)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+    <group>account_management,privilege_escalation,attack_stage,</group>
+  </rule>
+</group>
+
+<!-- ====================================================================== -->
+<!-- Cas 5 — PowerShell suspect                                             -->
+<!-- Prérequis : Script Block Logging activé + canal PowerShell/Operational -->
+<!-- collecté (wazuh/shared/agent.conf).                                    -->
+<!-- Doc : docs/powershell-suspect-wazuh.md                                 -->
+<!-- ====================================================================== -->
+<group name="windows,sysmon,powershell,">
+  <!-- Sysmon EID 1 : PowerShell lancé avec une commande encodée/obfusquée -->
+  <rule id="100114" level="12">
+    <if_group>sysmon_event1</if_group>
+    <field name="win.eventdata.commandLine" type="pcre2">(?i)(-e(nc(odedcommand)?|c)?\s+[A-Za-z0-9+/=]{16,}|frombase64string|downloadstring|downloadfile|net\.webclient|invoke-expression|\biex\b)</field>
+    <description>PowerShell suspect (Sysmon EID 1) : ligne de commande encodee/obfusquee - $(win.eventdata.commandLine)</description>
+    <mitre>
+      <id>T1059.001</id>
+      <id>T1027</id>
+    </mitre>
+    <group>execution,defense_evasion,attack_stage,</group>
+  </rule>
+
+  <!-- PowerShell 4104 : contenu du script block suspect (après déchiffrement) -->
+  <rule id="100115" level="12">
+    <if_sid>91837</if_sid>
+    <field name="win.eventdata.scriptBlockText" type="pcre2">(?i)(downloadstring|downloadfile|downloaddata|net\.webclient|invoke-expression|\biex\b|frombase64string|-e(nc(odedcommand)?|c)\b|invoke-mimikatz|reflection\.assembly)</field>
+    <description>PowerShell suspect (Script Block 4104) : motif malveillant dans le script déchiffré - $(win.eventdata.scriptBlockText)</description>
+    <mitre>
+      <id>T1059.001</id>
+      <id>T1105</id>
+    </mitre>
+    <group>execution,attack_stage,</group>
+  </rule>
+</group>
+
+<!-- ====================================================================== -->
+<!-- Cas 6 — Mimikatz / accès mémoire LSASS (Sysmon EID 10)                 -->
+<!-- Doc : docs/mimikatz-lsass-wazuh.md                                     -->
+<!-- ====================================================================== -->
+<group name="windows,sysmon,">
+  <rule id="100116" level="14">
+    <if_group>sysmon_event_10</if_group>
+    <field name="win.eventdata.targetImage" type="pcre2">(?i)\\lsass\.exe$</field>
+    <field name="win.eventdata.grantedAccess" type="pcre2">(?i)^0x(1010|1038|1410|1438|143a|147a|1f0fff|1f1fff|1fffff)$</field>
+    <description>Credential dumping : acces memoire LSASS ($(win.eventdata.grantedAccess)) depuis $(win.eventdata.sourceImage)</description>
+    <mitre>
+      <id>T1003.001</id>
+    </mitre>
+    <group>credential_access,attack_stage,</group>
+  </rule>
+</group>
+
+<!-- ====================================================================== -->
+<!-- Corrélation — Doc : docs/correlation-wazuh.md                          -->
+<!-- ====================================================================== -->
+<group name="syslog,sshd,">
+  <!-- Brute force sur un compte existant (100120) puis connexion réussie (5715), même IP -->
+  <rule id="100117" level="14">
+    <if_sid>5715</if_sid>
+    <if_matched_sid>100120</if_matched_sid>
+    <same_source_ip />
+    <description>SSH : connexion réussie depuis $(srcip) après un brute force — compromission probable du compte</description>
+    <mitre>
+      <id>T1110</id>
+      <id>T1078</id>
+    </mitre>
+    <group>authentication_success,compromise,attack_stage,</group>
+  </rule>
+</group>
+
+<group name="windows,windows_security,account_management,">
+  <!-- Création de compte (60109) puis ajout aux Administrateurs (100113), même agent -->
+  <rule id="100118" level="14">
+    <if_sid>100113</if_sid>
+    <if_matched_sid>60109</if_matched_sid>
+    <same_location />
+    <description>Windows : compte créé puis ajouté aux Administrateurs dans la foulée — persistance + élévation (compromission probable)</description>
+    <mitre>
+      <id>T1136</id>
+      <id>T1098</id>
+    </mitre>
+    <group>account_management,privilege_escalation,compromise,attack_stage,</group>
+  </rule>
+</group>
+
+<group name="correlation,">
+  <!-- Méta-règle : 3 étapes attack_stage en moins de 15 min -->
+  <rule id="100119" level="15" frequency="3" timeframe="900">
+    <if_matched_group>attack_stage</if_matched_group>
+    <description>Scénario d'intrusion multi-étapes : plusieurs détections critiques corrélées en moins de 15 min — compromission probable</description>
+    <group>compromise,attack_chain,</group>
+  </rule>
+</group>
+
+<!-- ====================================================================== -->
+<!-- Cas 9 — Exfiltration DNS (événements Suricata dns)                     -->
+<!-- Doc : docs/detections.md · runbooks/cas-09-exfiltration-dns.md         -->
+<!-- ====================================================================== -->
 <group name="ids,suricata,exfiltration,">
   <!-- Signature : sous-domaine anormalement long -->
   <rule id="100200" level="10">
@@ -28,7 +204,7 @@
     </mitre>
   </rule>
 
-  <!-- Volume : trop de requetes DNS en peu de temps -->
+  <!-- Volume : trop de requêtes DNS en peu de temps -->
   <rule id="100201" level="12" frequency="20" timeframe="30">
     <if_matched_sid>86603</if_matched_sid>
     <description>Exfiltration DNS possible : volume anormal de requetes DNS (plus de 20 en 30s)</description>
